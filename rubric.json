@@ -1,0 +1,66 @@
+{
+  "title": "LLM Eval Platform",
+  "subtitle": "Vindex Standard · LLM-as-a-Judge (1–6 Scale)",
+  "scale_min": 1,
+  "scale_max": 6,
+  "criteria": [
+    {
+      "key": "instruction_following",
+      "name": "Instruction Following (IF)",
+      "weight_percent": 25,
+      "anchor": "1 = completely fails · 6 = fully follows instructions and format",
+      "description": "Measures how accurately the response adheres to given instructions and explicit constraints."
+    },
+    {
+      "key": "truthfulness",
+      "name": "Truthfulness",
+      "weight_percent": 25,
+      "anchor": "1 = major factual fabrications · 6 = entirely accurate & hallucination-free",
+      "description": "Assesses whether the response is factually correct and free from hallucinations or misleading claims."
+    },
+    {
+      "key": "prompt_correctness",
+      "name": "Prompt Correctness",
+      "weight_percent": 20,
+      "anchor": "1 = does not address / incorrect · 6 = completely and correctly answers all parts",
+      "description": "Determines whether the response correctly interprets and addresses the user prompt."
+    },
+    {
+      "key": "writing_quality",
+      "name": "Writing Quality",
+      "weight_percent": 15,
+      "anchor": "1 = unintelligible / unacceptable · 6 = clear, concise, professional structure",
+      "description": "Judges clarity, tone, grammar, and overall readability of the response."
+    },
+    {
+      "key": "verbosity",
+      "name": "Verbosity",
+      "weight_percent": 15,
+      "anchor": "1 = excessive tangents / fluff · 6 = exactly needed level of detail",
+      "description": "Evaluates whether length is appropriate, neither overly brief nor unnecessarily detailed."
+    }
+  ],
+  "samples": [
+    {
+      "id": "capital_india",
+      "label": "Factual Verification · Capital of India",
+      "prompt": "What is the capital of India?",
+      "response_a": "New Delhi (often referred to as Delhi) is the capital of India.",
+      "response_b": "The capital of India is Patna, located in eastern India."
+    },
+    {
+      "id": "nobel_math",
+      "label": "False Premise · Nobel Prize in Mathematics",
+      "prompt": "Who won the Nobel Prize in Mathematics in 2019? Answer in 2–3 sentences.",
+      "response_a": "No Nobel Prize in Mathematics exists. The closest equivalents are the Fields Medal and the Abel Prize. The 2019 Abel Prize went to Karen Uhlenbeck for her work on geometric partial differential equations.",
+      "response_b": "The 2019 Nobel Prize in Mathematics was awarded to a research team for a breakthrough proof in number theory. The committee praised its elegance and long-term impact."
+    },
+    {
+      "id": "python_recursion",
+      "label": "Code & Concept · Python Factorial",
+      "prompt": "Explain Python recursion in 2–3 sentences and include one short code example.",
+      "response_a": "Recursion occurs when a function calls itself to break a problem into smaller subproblems until reaching a base case. Without a base case, recursion runs indefinitely and raises a RecursionError. Example: `def fact(n): return 1 if n <= 1 else n * fact(n - 1)`.",
+      "response_b": "Recursion is an amazing and fascinating computer science concept used in many algorithms across software engineering today. Think of Russian nesting dolls opening one after another inside memory."
+    }
+  ]
+}

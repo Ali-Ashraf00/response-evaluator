@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="author" content="Ali Ashraf" />
+  <title>LLM Eval Platform · by Ali Ashraf</title>
+  <link rel="stylesheet" href="/static/style.css" />
+  <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+</head>
+
+<body>
+  <!-- Top Navigation Header -->
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <div class="brand-icon" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z" />
+            <path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z" />
+            <path d="M7 21h10" />
+            <path d="M12 3v18" />
+            <path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2" />
+          </svg>
+        </div>
+        <div>
+          <div class="brand-title">LLM Eval Platform</div>
+          <div class="brand-sub">Vindex Standard · LLM-as-a-Judge (1–6 Scale)</div>
+        </div>
+      </div>
+
+      <nav class="nav-tabs" aria-label="Primary sections">
+        <button class="nav-tab active" data-tab="compare">Compare</button>
+        <button class="nav-tab" data-tab="blind">Blind mode</button>
+        <button class="nav-tab" data-tab="history">
+          History <span id="history-count-pill" class="count-pill">0</span>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- ==================== TAB 1: COMPARE ==================== -->
+    <section id="tab-compare" class="tab-panel active">
+      <div class="page-head">
+        <div>
+          <h1>Compare two responses</h1>
+          <p class="subtitle">
+            Score both answers across the 5 Vindex dimensions (1–6 scale). Every comparison runs twice with positions
+            swapped to detect position bias.
+          </p>
+        </div>
+        <button type="button" class="engine-pill clickable-pill" id="engine-status-pill"
+          title="Click to configure API keys & engine">
+          <span class="dot"></span>
+          <span id="engine-label">Judge engine: deterministic heuristic (no API key)</span>
+          <span class="gear-icon">⚙️</span>
+        </button>
+      </div>
+
+      <!-- Prompt & Response Inputs -->
+      <div class="card input-card">
+        <div class="field-row-head">
+          <label for="compare-prompt">Prompt</label>
+          <div class="sample-picker">
+            <label for="sample-select" class="muted-label">Sample:</label>
+            <select id="sample-select">
+              <option value="">-- Load a sample prompt (optional) --</option>
+            </select>
+          </div>
+        </div>
+        <textarea id="compare-prompt" rows="2" placeholder="Enter your prompt here..."></textarea>
+
+        <div class="two-col-inputs">
+          <div>
+            <label for="compare-a" class="badge-label">
+              <span class="badge-a">A</span> Response A
+            </label>
+            <textarea id="compare-a" rows="4" placeholder="Enter or paste Response A..."></textarea>
+          </div>
+          <div>
+            <label for="compare-b" class="badge-label">
+              <span class="badge-b">B</span> Response B
+            </label>
+            <textarea id="compare-b" rows="4" placeholder="Enter or paste Response B..."></textarea>
+          </div>
+        </div>
+
+        <div class="action-bar">
+          <div class="action-left">
+            <button id="run-eval-btn" class="btn-primary">Run evaluation</button>
+            <span class="hint-text">2 passes: A vs B, then B vs A</span>
+          </div>
+          <div class="preview-toggle-group">
+            <span class="hint-text">Preview result:</span>
+            <div class="segmented" role="group" aria-label="Preview swap test mode">
+              <button type="button" class="seg-btn active" data-bias="false">Consistent winner</button>
+              <button type="button" class="seg-btn" data-bias="true">Position bias</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="compare-error" class="alert-error hidden"></div>
+
+      <!-- Top Evaluation Results: Winner Banner + 3-Step Swap Audit (Reveals on Run evaluation) -->
+      <div id="compare-results-top" class="results-stack hidden" style="margin-top: 24px;">
+        <!-- Winner Banner -->
+        <div id="winner-banner" class="winner-banner consistent">
+          <div class="winner-left">
+            <div id="winner-icon" class="winner-icon" aria-hidden="true">✓</div>
+            <div>
+              <div id="winner-title" class="winner-title">Response A wins · high confidence</div>
+              <div id="winner-sub" class="winner-sub">
+                The judge picked the same answer in both passes, so position did not decide the result.
+              </div>
+            </div>
+          </div>
+          <div class="winner-scores">
+            <div class="mini-score-card">
+              <div class="mini-label">Response A</div>
+              <div id="banner-score-a" class="mini-val text-a">5.00</div>
+              <div id="banner-tier-a" class="tier-badge">Good</div>
+            </div>
+            <div class="mini-score-card">
+              <div class="mini-label">Response B</div>
+              <div id="banner-score-b" class="mini-val text-b">2.40</div>
+              <div id="banner-tier-b" class="tier-badge">Poor</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3-Step Swap Audit Row -->
+        <div class="audit-grid">
+          <div class="audit-card">
+            <div class="audit-head">
+              <span class="step-num">1</span>
+              <span>Pass 1 · Judge(A, B)</span>
+            </div>
+            <div id="audit-pass1" class="audit-body">Picked <strong>Response A</strong> (shown in position 1)</div>
+          </div>
+          <div class="audit-card">
+            <div class="audit-head">
+              <span class="step-num">2</span>
+              <span>Pass 2 · Judge(B, A)</span>
+            </div>
+            <div id="audit-pass2" class="audit-body">Picked <strong>Response A</strong> (shown in position 2)</div>
+          </div>
+          <div id="audit-card-3" class="audit-card">
+            <div class="audit-head">
+              <span class="step-num">3</span>
+              <span>Consistency check</span>
+            </div>
+            <div id="audit-pass3" class="audit-body"><strong>Same winner</strong> · confidence high</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Rubric Criteria Section (Always visible with 1–6 rating boxes on page load) -->
+      <div class="section-header-row" style="margin-top: 24px; margin-bottom: 12px;">
+        <div>
+          <h2>Vindex Rubric Dimensions (1–6 Scale)</h2>
+          <span class="hint-text">Instruction Following (25%) · Truthfulness (25%) · Prompt Correctness (20%) · Writing
+            (15%) · Verbosity (15%)</span>
+        </div>
+        <span class="hint-text">Interactive 1–6 rating boxes · AI evaluates on click</span>
+      </div>
+      <div id="criteria-list" class="criteria-stack"></div>
+
+      <!-- Bottom Evaluation Results: Overall Quality Card + Export CSV (Reveals on Run evaluation) -->
+      <div id="compare-results-bottom" class="results-stack hidden" style="margin-top: 24px;">
+        <!-- Overall Summary Card -->
+        <div class="card overall-card">
+          <div class="section-header-row compact">
+            <h2>Overall Quality & SxS Justification</h2>
+            <span class="hint-text">Vindex Formula: IF (25%) + Truth (25%) + Correctness (20%) + Writing (15%) +
+              Verbosity (15%)</span>
+          </div>
+
+          <div class="overall-top">
+            <div class="overall-score-pair">
+              <div class="overall-box">
+                <div class="mini-label">Response A</div>
+                <div id="overall-score-a" class="big-val text-a">5.00</div>
+                <div class="out-of">out of 6.00 · <strong id="overall-tier-a">Good</strong></div>
+              </div>
+              <div class="overall-box">
+                <div class="mini-label">Response B</div>
+                <div id="overall-score-b" class="big-val text-b">2.40</div>
+                <div class="out-of">out of 6.00 · <strong id="overall-tier-b">Poor</strong></div>
+              </div>
+            </div>
+
+            <div class="overall-narrative">
+              <h3 id="overall-headline">Response A is better than Response B</h3>
+              <p id="overall-summary"></p>
+              <div class="confidence-line">
+                SxS Preference: <strong id="overall-preference">+3 · Significantly better</strong> ·
+                Judge confidence: <strong id="overall-confidence">High</strong>
+              </div>
+            </div>
+          </div>
+
+          <div class="strengths-issues-grid">
+            <div class="si-box strengths-box">
+              <div class="si-title">Strengths</div>
+              <p id="overall-strengths"></p>
+            </div>
+            <div class="si-box issues-box">
+              <div class="si-title">Issues</div>
+              <p id="overall-issues"></p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Persistence Footer -->
+        <div class="footer-bar">
+          <span id="compare-save-note" class="hint-text">
+            Saved to local SQLite history. Overall score = Vindex weighted formula (1–6 scale).
+          </span>
+          <a href="/api/history/export" class="btn-secondary">Export CSV</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 2: BLIND MODE ==================== -->
+    <section id="tab-blind" class="tab-panel">
+      <div class="page-head">
+        <div>
+          <h1>Blind review</h1>
+          <p class="subtitle">
+            Rate both responses yourself across the 5 Vindex criteria (1–6 scale). The AI judge's scores stay hidden
+            until you reveal them, exactly like a real annotation round.
+          </p>
+        </div>
+        <div class="counter-pill" id="blind-progress-pill">0/10 ratings given</div>
+      </div>
+
+      <!-- Prompt & Blind Responses Box -->
+      <div class="card blind-context-card">
+        <div class="blind-context-head">
+          <span class="mini-label">Prompt</span>
+          <div class="blind-tools">
+            <button type="button" id="blind-sync-btn" class="btn-link">Sync from Compare inputs</button>
+            <button type="button" id="blind-edit-toggle" class="btn-link">Edit text</button>
+          </div>
+        </div>
+
+        <div id="blind-readonly-view">
+          <div id="blind-prompt-display" class="blind-prompt-text"></div>
+          <div class="two-col-inputs">
+            <div class="blind-resp-box">
+              <div class="badge-label"><span class="badge-a">A</span> Response A</div>
+              <div id="blind-a-display" class="blind-resp-text"></div>
+            </div>
+            <div class="blind-resp-box">
+              <div class="badge-label"><span class="badge-b">B</span> Response B</div>
+              <div id="blind-b-display" class="blind-resp-text"></div>
+            </div>
+          </div>
+        </div>
+
+        <div id="blind-edit-view" class="hidden">
+          <textarea id="blind-prompt-input" rows="2" placeholder="Enter prompt for blind review..."></textarea>
+          <div class="two-col-inputs">
+            <div>
+              <label class="badge-label"><span class="badge-a">A</span> Response A</label>
+              <textarea id="blind-a-input" rows="3" placeholder="Response A text..."></textarea>
+            </div>
+            <div>
+              <label class="badge-label"><span class="badge-b">B</span> Response B</label>
+              <textarea id="blind-b-input" rows="3" placeholder="Response B text..."></textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p class="blind-note">Model names and AI scores are hidden to keep your judgement unbiased.</p>
+
+      <div class="section-header-row">
+        <h2>Your ratings</h2>
+        <span class="hint-text">Give each response a 1–6 score on every criterion</span>
+      </div>
+
+      <div id="blind-criteria-list" class="criteria-stack"></div>
+
+      <div id="blind-error" class="alert-error hidden"></div>
+
+      <div class="blind-actions">
+        <button id="blind-reveal-btn" class="btn-primary" disabled>Reveal AI judge scores</button>
+        <button id="blind-reset-btn" class="btn-secondary">Start over</button>
+        <span id="blind-reveal-hint" class="hint-text">Rate all 10 scores (5 criteria × A & B) to unlock reveal.</span>
+      </div>
+
+      <!-- Blind Reveal Summary -->
+      <div id="blind-overall-card" class="card overall-card hidden">
+        <div class="section-header-row compact">
+          <h2>Overall · you vs the AI</h2>
+          <span class="hint-text">Vindex Weighted Quality (1.00–6.00 scale)</span>
+        </div>
+
+        <div class="blind-vs-grid">
+          <div class="vs-box">
+            <div class="vs-title">Your overall</div>
+            <div class="overall-score-pair two-up">
+              <div class="overall-box">
+                <div class="mini-label">Response A</div>
+                <div id="blind-human-a" class="big-val text-a">0.00</div>
+                <div id="blind-human-tier-a" class="out-of">--</div>
+              </div>
+              <div class="overall-box">
+                <div class="mini-label">Response B</div>
+                <div id="blind-human-b" class="big-val text-b">0.00</div>
+                <div id="blind-human-tier-b" class="out-of">--</div>
+              </div>
+            </div>
+            <div class="vs-prefer">Your preference: <strong id="blind-human-prefer">Response A</strong></div>
+          </div>
+
+          <div class="vs-box">
+            <div class="vs-title">AI judge overall</div>
+            <div class="overall-score-pair two-up">
+              <div class="overall-box">
+                <div class="mini-label">Response A</div>
+                <div id="blind-ai-a" class="big-val text-a">0.00</div>
+                <div id="blind-ai-tier-a" class="out-of">--</div>
+              </div>
+              <div class="overall-box">
+                <div class="mini-label">Response B</div>
+                <div id="blind-ai-b" class="big-val text-b">0.00</div>
+                <div id="blind-ai-tier-b" class="out-of">--</div>
+              </div>
+            </div>
+            <div class="vs-prefer">AI preference: <strong id="blind-ai-prefer">Response A</strong></div>
+          </div>
+        </div>
+
+        <div class="agreement-row">
+          <div class="exact-box">
+            <div class="mini-label">Exact matches</div>
+            <div id="blind-exact-matches" class="exact-val">0/10</div>
+          </div>
+          <div id="blind-agree-banner" class="agree-box agree">
+            <div id="blind-agree-title" class="agree-title">You and the AI agree on the better response</div>
+            <div id="blind-agree-sub" class="agree-sub">Both picked Response A.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 3: HISTORY ==================== -->
+    <section id="tab-history" class="tab-panel">
+      <div class="page-head">
+        <div>
+          <h1>Evaluation history</h1>
+          <p class="subtitle">
+            Every Compare and Blind review evaluation is stored locally in SQLite so you can audit past decisions or
+            export CSV.
+          </p>
+        </div>
+        <div class="history-top-actions">
+          <a href="/api/history/export" class="btn-secondary">Export CSV</a>
+          <button id="clear-history-btn" class="btn-danger-outline">Clear all</button>
+        </div>
+      </div>
+
+      <div class="history-toolbar card">
+        <div class="filter-pills" role="group" aria-label="Filter history">
+          <button class="filter-chip active" data-filter="all">All</button>
+          <button class="filter-chip" data-filter="compare">Compare</button>
+          <button class="filter-chip" data-filter="blind">Blind review</button>
+          <button class="filter-chip" data-filter="consistent">Consistent</button>
+          <button class="filter-chip" data-filter="bias">Position bias</button>
+        </div>
+        <input id="history-search" type="search" class="search-input" placeholder="Search prompt or responses..." />
+      </div>
+
+      <div id="history-list" class="history-list"></div>
+    </section>
+  </main>
+
+  <!-- Developer Footer -->
+  <footer class="app-footer">
+    <div class="footer-inner">
+      <div class="footer-credit">
+        <span>Designed & Developed with <span class="heart-icon">❤️</span> by <strong>Ali Ashraf</strong></span>
+      </div>
+      <div class="footer-links">
+        <a href="mailto:mdaliashraf439@gmail.com" class="footer-link" title="Email Ali Ashraf">
+          <svg class="footer-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect width="20" height="16" x="2" y="4" rx="2"/>
+            <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+          </svg>
+          <span>Email</span>
+        </a>
+        <span class="footer-sep">•</span>
+        <a href="https://www.linkedin.com/in/ali-ashraf-89aa9b277/" target="_blank" rel="noopener noreferrer" class="footer-link" title="LinkedIn Profile">
+          <svg class="footer-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.75M6.46 10.9v8.37H9.2V10.9H6.46M7.83 6.45c-.88 0-1.6.72-1.6 1.6 0 .88.72 1.6 1.6 1.6.88 0 1.6-.72 1.6-1.6 0-.88-.72-1.6-1.6-1.6Z"/>
+          </svg>
+          <span>LinkedIn</span>
+        </a>
+        <span class="footer-sep">•</span>
+        <a href="https://github.com/Ali-Ashraf00" target="_blank" rel="noopener noreferrer" class="footer-link" title="GitHub Profile">
+          <svg class="footer-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.1-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2Z"/>
+          </svg>
+          <span>GitHub</span>
+        </a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Settings Modal for API Key Configuration -->
+  <div id="settings-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true"
+    aria-labelledby="settings-title">
+    <div class="modal-card" style="max-width: 520px">
+      <div class="modal-head">
+        <div>
+          <h2 id="settings-title">Judge Engine Settings</h2>
+          <div class="hint-text">Choose between offline deterministic mode or a live LLM API.</div>
+        </div>
+        <button id="settings-close-btn" class="btn-secondary" type="button">Close</button>
+      </div>
+      <div class="modal-body">
+        <label for="settings-provider">Active Engine:</label>
+        <select id="settings-provider" style="width: 100%; margin-bottom: 12px; padding: 8px;">
+          <option value="heuristic">Deterministic Heuristic (Offline / No API Key)</option>
+          <option value="groq">Groq API (Llama-3.3-70B · Ultra Fast & Free)</option>
+          <option value="gemini">Gemini API (Gemini-2.0-flash / Gemini-1.5 · Free)</option>
+        </select>
+
+        <div id="api-key-group" class="hidden">
+          <label for="settings-key" id="api-key-label">API Key:</label>
+          <input id="settings-key" type="password" placeholder="Enter your API key..."
+            style="width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px;" />
+          <div class="hint-text" style="margin-top: 6px;">Your API key is saved locally in your .env file and never
+            shared.</div>
+        </div>
+
+        <div id="settings-msg" class="hint-text" style="margin-top: 8px;"></div>
+
+        <div style="margin-top: 18px; display: flex; justify-content: flex-end; gap: 8px;">
+          <button id="settings-save-btn" class="btn-primary" type="button">Save & Apply</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- History Detail Modal -->
+  <div id="history-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal-card">
+      <div class="modal-head">
+        <div>
+          <h2 id="modal-title">Saved evaluation details</h2>
+          <div id="modal-meta" class="hint-text"></div>
+        </div>
+        <button id="modal-close-btn" class="btn-secondary" type="button">Close</button>
+      </div>
+      <div id="modal-body" class="modal-body"></div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+
+</html>

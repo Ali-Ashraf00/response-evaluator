@@ -1,0 +1,19 @@
+# Environment variables & API keys (CRITICAL: Never commit .env)
+.env
+
+# SQLite local database & history
+*.db
+*.sqlite
+*.sqlite3
+
+# Python bytecode & cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# OS and Editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
